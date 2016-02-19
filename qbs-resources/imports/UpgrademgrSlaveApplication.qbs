@@ -12,8 +12,8 @@ Product {
    destinationDirectory: "bin"
    cpp.cxxLanguageVersion: "c++14"
    cpp.defines: base.concat([
-                               'UPGRADEMGR_SLAVE_INSTALL_ROOT="' + qbs.installRoot + '"',
-                               'UPGRADEMGR_SLAVE_SHARE_RES_DIR="' + qbs.installRoot+'/'+project.resourcesInstallDir+ '"'
+                               'UMS_INSTALL_ROOT="' + qbs.installRoot + '"',
+                               'UMS_SHARE_RES_DIR="' + qbs.installRoot+'/'+project.resourcesInstallDir+ '"'
                             ])
    Group {
       fileTagsFilter: product.type

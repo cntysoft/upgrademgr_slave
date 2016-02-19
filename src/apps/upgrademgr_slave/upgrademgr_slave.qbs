@@ -14,9 +14,9 @@ UpgrademgrSlaveApplication
                                  ])
    cpp.defines: {
       var defines = [];
-      defines.push('UPGRADEMGR_MASTER_VERSION="' + project.upgrademgrMasterversion + '"');
+      defines.push('UMS_VERSION="' + project.upgrademgrSlaveVersion + '"');
       if(!project.releaseBuild){
-         defines.push("UPGRADEMGR_MASTER_DEBUG_BUILD")
+         defines.push("UMS_DEBUG_BUILD")
       }
       return defines;
    }
