@@ -16,6 +16,9 @@ using sn::corelib::CommandMeta;
 using sn::corelib::AbstractCommand;
 using sn::corelib::AbstractCommandRunner;
 
+using upgrademgr::slave::command::GlobalVersionCommand;
+using upgrademgr::slave::command::GlobalHelpCommand;
+
 CommandRunner::CommandRunner(Application &app)
    : AbstractCommandRunner(app)
 {
@@ -30,14 +33,14 @@ CommandRunner::CommandRunner(Application &app)
 
 void CommandRunner::initCommandPool()
 {
-   //   m_cmdRegisterPool.insert("Global_Version", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
-   //      GlobalVersionCommand *cmd = new GlobalVersionCommand(dynamic_cast<CommandRunner&>(runner), meta);
-   //      return cmd;
-   //   });
-   //   m_cmdRegisterPool.insert("Global_Help", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
-   //      GlobalHelpCommand *cmd = new GlobalHelpCommand(dynamic_cast<CommandRunner&>(runner), meta);
-   //      return cmd;
-   //   });
+   m_cmdRegisterPool.insert("Global_Version", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
+      GlobalVersionCommand *cmd = new GlobalVersionCommand(dynamic_cast<CommandRunner&>(runner), meta);
+      return cmd;
+   });
+   m_cmdRegisterPool.insert("Global_Help", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
+      GlobalHelpCommand *cmd = new GlobalHelpCommand(dynamic_cast<CommandRunner&>(runner), meta);
+      return cmd;
+   });
    //   m_cmdRegisterPool.insert("Global_StartServer", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
    //      StartServerCommand *cmd = new StartServerCommand(dynamic_cast<CommandRunner&>(runner), meta);
    //      return cmd;
