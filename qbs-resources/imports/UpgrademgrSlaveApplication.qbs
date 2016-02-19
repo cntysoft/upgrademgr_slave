@@ -8,6 +8,7 @@ Product {
    Depends {name:"cpp"}
    Depends { name: "umslib"}
    Depends { name: "corelib"}
+   Depends { name: "umsservicelib"}
    consoleApplication: true
    destinationDirectory: "bin"
    cpp.cxxLanguageVersion: "c++14"

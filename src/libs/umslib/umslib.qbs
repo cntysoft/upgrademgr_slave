@@ -19,7 +19,8 @@ Product
          defines.push("UMS_LIBRARY");
       }
       defines = defines.concat([
-                                  'UMS_LIB_VERSION="'+ version+'"'
+                                  'UMS_LIB_VERSION="'+ version+'"',
+                                  'UMS_VERSION="' + project.upgrademgrSlaveVersion + '"'
                                ]);
       return defines;
    }
@@ -36,5 +37,17 @@ Product
       fileTagsFilter: product.type.concat("dynamiclibrary_symlink")
       qbs.install: true
       qbs.installDir: "lib"
+   }
+   
+   Group {
+      name: "global"
+      prefix: name+"/"
+      files: [
+           "common_funcs.cpp",
+           "common_funcs.h",
+           "const.h",
+           "error_code.h",
+           "global.h",
+       ]
    }
 }
