@@ -19,7 +19,6 @@ static void init_global_cfg(Settings& settings)
 {
    QString runtimeDir = QDir::tempPath()+QDir::separator()+"upgrademgrslave";
    settings.setValue("runtimeDir", runtimeDir, UMS_CFG_GROUP_GLOBAL);
-   settings.setValue("listenPort", UMS_LISTEN_PORT, UMS_CFG_GROUP_GLOBAL);
    settings.setValue("baseDataDir", "/cntysoft/upgrademgrslave", UMS_CFG_GROUP_GLOBAL);
 //   settings.setValue("dbHost", "localhost");
 //   settings.setValue("dbUser", "cntysoft");
