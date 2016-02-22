@@ -1,6 +1,13 @@
 import qbs 1.0
 Product
 {
+    files: [
+        "common/downloader.cpp",
+        "common/downloader.h",
+        "global_defs.h",
+        "macros.h",
+        "upgrade/upgrade_cloudcontroller.h",
+    ]
    type: "dynamiclibrary"
    name : "umsservicelib"
    targetName : "umsservice"

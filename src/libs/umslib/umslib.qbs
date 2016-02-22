@@ -43,11 +43,19 @@ Product
       name: "global"
       prefix: name+"/"
       files: [
-           "common_funcs.cpp",
-           "common_funcs.h",
-           "const.h",
-           "error_code.h",
-           "global.h",
-       ]
+         "common_funcs.cpp",
+         "common_funcs.h",
+         "const.h",
+         "error_code.h",
+         "global.h",
+      ]
+   }
+   Group {
+      name : "network"
+      prefix : name + "/"
+      files : [
+         "multi_thread_server.cpp",
+         "multi_thread_server.h"	
+      ]
    }
 }

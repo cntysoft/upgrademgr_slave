@@ -18,6 +18,7 @@ using sn::corelib::AbstractCommandRunner;
 
 using upgrademgr::slave::command::GlobalVersionCommand;
 using upgrademgr::slave::command::GlobalHelpCommand;
+using upgrademgr::slave::command::StartServerCommand;
 
 CommandRunner::CommandRunner(Application &app)
    : AbstractCommandRunner(app)
@@ -41,10 +42,10 @@ void CommandRunner::initCommandPool()
       GlobalHelpCommand *cmd = new GlobalHelpCommand(dynamic_cast<CommandRunner&>(runner), meta);
       return cmd;
    });
-   //   m_cmdRegisterPool.insert("Global_StartServer", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
-   //      StartServerCommand *cmd = new StartServerCommand(dynamic_cast<CommandRunner&>(runner), meta);
-   //      return cmd;
-   //   });
+   m_cmdRegisterPool.insert("Global_StartServer", [](AbstractCommandRunner& runner, const CommandMeta& meta)->AbstractCommand*{
+      StartServerCommand *cmd = new StartServerCommand(dynamic_cast<CommandRunner&>(runner), meta);
+      return cmd;
+   });
 }
 
 void CommandRunner::initRouteItems()
