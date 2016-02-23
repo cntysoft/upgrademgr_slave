@@ -3,5 +3,6 @@
 
 #define UMS_CFG_GROUP_GLOBAL "Global"
 #define UMS_LISTEN_PORT 7770
+#define UMM_LISTEN_PORT 7760
 
 #endif // UMS_LIB_GLOBAL_CONST_H

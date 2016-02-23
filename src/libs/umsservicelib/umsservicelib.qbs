@@ -2,10 +2,12 @@ import qbs 1.0
 Product
 {
     files: [
-        "common/downloader.cpp",
-        "common/downloader.h",
+        "common/download_client.cpp",
+        "common/download_client.h",
         "global_defs.h",
         "macros.h",
+        "service_repo.h",
+        "upgrade/upgrade_cloudcontroller.cpp",
         "upgrade/upgrade_cloudcontroller.h",
     ]
    type: "dynamiclibrary"

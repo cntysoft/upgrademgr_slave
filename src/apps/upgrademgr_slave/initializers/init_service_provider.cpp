@@ -1,5 +1,5 @@
 #include "initializers/initializer_cleanup_funcs.h"
-//#include "ummservicelib/service_repo.h"
+#include "umsservicelib/service_repo.h"
 #include "corelib/network/rpc/service_provider.h"
 #include "corelib/network/rpc/abstract_service.h"
 
@@ -11,10 +11,10 @@ using sn::corelib::network::AbstractService;
 
 void init_service_provider()
 {
-//   ServiceProvider& provider = ServiceProvider::instance();
-//   provider.addServiceToPool("Repo/Info", [](ServiceProvider& provider)-> AbstractService*{
-//                            return new ummservice::repo::Info(provider);
-//                         });
+   ServiceProvider& provider = ServiceProvider::instance();
+   provider.addServiceToPool("Upgrade/UpgradeCloudController", [](ServiceProvider& provider)-> AbstractService*{
+                            return new umsservice::upgrader::UpgradeCloudControllerWrapper(provider);
+                         });
 //   provider.addServiceToPool("ServerStatus/Info", [](ServiceProvider& provider)-> AbstractService*{
 //                            return new ummservice::serverstatus::Info(provider);
 //                         });

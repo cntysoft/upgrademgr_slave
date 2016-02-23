@@ -58,4 +58,13 @@ Product
          "multi_thread_server.h"	
       ]
    }
+   
+   Group {
+      name : "kernel"
+      prefix : name + "/"
+      files : [
+           "stddir.cpp",
+           "stddir.h",
+       ]
+   }
 }
