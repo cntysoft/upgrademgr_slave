@@ -32,12 +32,14 @@ public:
       QFile *targetFile = nullptr;
    };
    const static QString CC_UPGRADE_PKG_NAME_TPL;
+   friend void init_download_handler(const ServiceInvokeResponse &response, void* args);
 public:
    DownloadClient(QSharedPointer<ServiceInvoker> serviceInvoker);
    void download(const QString &filename);
+   void emitDownloadError(int errorCode, const QString &errorMsg);
 signals:
    void beginDownload();
-   void downloadError(const QString &errorMsg);
+   void downloadError(int errorCode, const QString &errorMsg);
    void downloadComplete();
 protected:
    DownloadContext m_context;

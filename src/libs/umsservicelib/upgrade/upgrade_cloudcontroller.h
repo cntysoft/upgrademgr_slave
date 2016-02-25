@@ -31,6 +31,7 @@ public:
       ServiceInvokeRequest request;
       ServiceInvokeResponse response;
    };
+   const static int STEP_PREPARE = -1;
    const static int STEP_INIT_CONTEXT = 0;
    const static int STEP_DOWNLOAD_PKG = 1;
    const static int STEP_BACKUP_FILES = 2;
@@ -46,11 +47,12 @@ public:
    Q_INVOKABLE ServiceInvokeResponse init(const ServiceInvokeRequest &request);
 //   Q_INVOKABLE ServiceInvokeResponse upgrade(const ServiceInvokeRequest &request);
 protected:
-   void downloadUpgradePkg();
+   void downloadUpgradePkg(const QString &filename);
    QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);
 protected:
    bool m_isInAction = false;
    UpgradeContext m_context;
+   int m_step = STEP_PREPARE;
    QString m_deployDir;
    QSharedPointer<DownloadClient> m_downloadClient;
 };
