@@ -34,22 +34,24 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::init(const ServiceInvokeReq
    if(m_step != STEP_PREPARE){
       throw_exception(ErrorInfo("状态错误"), getErrorContext());
    }
+   m_context.reset(new UpgradeContext);
    QMap<QString, QVariant> args = request.getArgs();
    checkRequireFields(args, {"fromVersion", "toVersion"});
    QString softwareRepoDir = StdDir::getSoftwareRepoDir();
-   m_context.fromVersion = args.value("fromVersion").toString();
-   m_context.toVersion = args.value("toVersion").toString();
-   QString baseFilename = QString(CC_UPGRADE_PKG_NAME_TPL).arg(m_context.fromVersion, m_context.toVersion);
+   m_context->fromVersion = args.value("fromVersion").toString();
+   m_context->toVersion = args.value("toVersion").toString();
+   QString baseFilename = QString(CC_UPGRADE_PKG_NAME_TPL).arg(m_context->fromVersion, m_context->toVersion);
    QString upgradePkgFilename = softwareRepoDir + '/' + baseFilename;
-   m_context.pkgFilename = upgradePkgFilename;
-   m_context.request = request;
+   m_context->pkgFilename = upgradePkgFilename;
+   m_context->request = request;
    ServiceInvokeResponse response("Upgrade/UpgradeCloudController/init", true);
    response.setSerial(request.getSerial());
-   m_context.response = response;
-   if(!Filesystem::fileExist(upgradePkgFilename)){
-      //下载升级文件到本地
-      downloadUpgradePkg(baseFilename);
-   }   
+   m_context->response = response;
+//   if(!Filesystem::fileExist(upgradePkgFilename)){
+//      //下载升级文件到本地
+//      downloadUpgradePkg(baseFilename);
+//   }  
+   downloadUpgradePkg(baseFilename);
    response.setSerial(request.getSerial());
    response.setIsFinal(true);
    return response;
@@ -62,18 +64,17 @@ void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
    QSharedPointer<DownloadClient> downloader = getDownloadClient(settings.getValue("upgrademgrMasterHost").toString(), 
                                                                  settings.getValue("upgrademgrMasterPort").toInt());
    connect(downloader.data(), &DownloadClient::beginDownload, this, [&](){
-      m_context.response.setDataItem("step", STEP_DOWNLOAD_PKG);
-      m_context.response.setDataItem("msg", "开始下载软件包");
-      writeInterResponse(m_context.request, m_context.response);
+      m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
+      m_context->response.setDataItem("msg", "开始下载软件包");
+      writeInterResponse(m_context->request, m_context->response);
    });
    QObject::connect(downloader.data(), &DownloadClient::downloadError, this, [&](int errorCode, const QString &errorMsg){
-      m_context.response.setDataItem("step", STEP_DOWNLOAD_PKG);
-      m_context.response.setStatus(false);
-      m_context.response.setError({errorCode, errorMsg});
-      writeInterResponse(m_context.request, m_context.response);
+      m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
+      m_context->response.setStatus(false);
+      m_context->response.setError({errorCode, errorMsg});
+      writeInterResponse(m_context->request, m_context->response);
       m_eventLoop.exit();
       m_isInAction = false;
-      m_context.step = STEP_PREPARE;
       m_step = STEP_PREPARE;
    });
    connect(downloader.data(), &DownloadClient::downloadComplete, this, [&](){
@@ -81,6 +82,11 @@ void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
    });
    downloader->download(filename);
    m_eventLoop.exec();
+}
+
+void UpgradeCloudControllerWrapper::clearState()
+{
+   m_context.clear();
 }
 
 QSharedPointer<DownloadClient> UpgradeCloudControllerWrapper::getDownloadClient(const QString &host, quint16 port)

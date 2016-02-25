@@ -27,7 +27,6 @@ public:
       QString fromVersion;
       QString toVersion;
       QString pkgFilename;
-      int step;
       ServiceInvokeRequest request;
       ServiceInvokeResponse response;
    };
@@ -49,9 +48,10 @@ public:
 protected:
    void downloadUpgradePkg(const QString &filename);
    QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);
+   void clearState();
 protected:
    bool m_isInAction = false;
-   UpgradeContext m_context;
+   QSharedPointer<UpgradeContext> m_context;
    int m_step = STEP_PREPARE;
    QString m_deployDir;
    QSharedPointer<DownloadClient> m_downloadClient;
