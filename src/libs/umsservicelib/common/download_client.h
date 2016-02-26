@@ -41,6 +41,7 @@ public:
    DownloadClient(QSharedPointer<ServiceInvoker> serviceInvoker);
    void download(const QString &filename);
    void emitDownloadError(int errorCode, const QString &errorMsg);
+   void emitDownloadComplete();
 protected:
    void clearState();
    void beginRetrieveData();

@@ -28,7 +28,6 @@ void init_download_handler(const ServiceInvokeResponse &response, void* args)
 
 void download_cycle_handler(const ServiceInvokeResponse &response, void* args)
 {
-//   qDebug() << "data retrieve";
    DownloadClient *self = static_cast<DownloadClient*>(args);
    if(!response.getStatus()){
       self->emitDownloadError(response.getError().first, response.getError().second);
@@ -37,13 +36,14 @@ void download_cycle_handler(const ServiceInvokeResponse &response, void* args)
       //保存数据
       self->m_context->downloadPointer += response.getDataItem("dataSize").toInt();
       self->m_context->targetFile->write(response.getExtraData());
-//      qDebug() << self->m_context->downloadPointer;
-//      qDebug() << self->m_context->fileSize;
       if(self->m_context->downloadPointer < self->m_context->fileSize){
          self->downloadCycle();
       }else{
-         qDebug() << "complete";
          self->m_context->targetFile->close();
+         ServiceInvokeRequest request("Common/DownloadServer", "notifyComplete");
+         self->m_serviceInvoker->request(request);
+         self->clearState();
+         self->emitDownloadComplete();
       }
    }
 }
@@ -51,6 +51,11 @@ void download_cycle_handler(const ServiceInvokeResponse &response, void* args)
 void DownloadClient::emitDownloadError(int errorCode, const QString &errorMsg)
 {
    emit downloadError(errorCode, errorMsg);
+}
+
+void DownloadClient::emitDownloadComplete()
+{
+   emit downloadComplete();
 }
 
 DownloadClient::DownloadClient(QSharedPointer<ServiceInvoker> serviceInvoker)
@@ -94,8 +99,6 @@ void DownloadClient::beginRetrieveData()
 
 void DownloadClient::downloadCycle()
 {
-//   qDebug() << m_context->downloadPointer;
-//   qDebug() << m_context->fileSize;
    int retrieveSize = qMin(m_context->fileSize - m_context->downloadPointer, m_context->chunkSize);
    ServiceInvokeRequest request("Common/DownloadServer", "sendData", {
                                    {"retrieveSize", retrieveSize},

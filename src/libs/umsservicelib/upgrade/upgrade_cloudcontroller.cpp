@@ -1,3 +1,10 @@
+#include <QProcess>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonParseError>
+#include <QFileInfo>
+
 #include "upgrade_cloudcontroller.h"
 
 #include "corelib/kernel/settings.h"
@@ -29,7 +36,7 @@ UpgradeCloudControllerWrapper::UpgradeCloudControllerWrapper(ServiceProvider &pr
    m_deployDir = settings.getValue("cloudControllerWebRootDir", UMS_CFG_GROUP_GLOBAL, "/srv/www/cloudcontroller").toString();
 }
 
-ServiceInvokeResponse UpgradeCloudControllerWrapper::init(const ServiceInvokeRequest &request)
+ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvokeRequest &request)
 {
    if(m_step != STEP_PREPARE){
       throw_exception(ErrorInfo("状态错误"), getErrorContext());
@@ -47,11 +54,18 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::init(const ServiceInvokeReq
    ServiceInvokeResponse response("Upgrade/UpgradeCloudController/init", true);
    response.setSerial(request.getSerial());
    m_context->response = response;
-//   if(!Filesystem::fileExist(upgradePkgFilename)){
-//      //下载升级文件到本地
-//      downloadUpgradePkg(baseFilename);
-//   }  
+   //   if(!Filesystem::fileExist(upgradePkgFilename)){
+   //      //下载升级文件到本地
+   //      downloadUpgradePkg(baseFilename);
+   //   }
    downloadUpgradePkg(baseFilename);
+   m_context->response.setDataItem("step", STEP_EXTRA_PKG);
+   m_context->response.setDataItem("msg", "正在解压升级压缩包");
+   m_context->response.setStatus(true);
+   writeInterResponse(m_context->request, m_context->response);
+   unzipPkg(m_context->pkgFilename);
+   backupScriptFiles();
+   upgradeFiles();
    response.setSerial(request.getSerial());
    response.setIsFinal(true);
    return response;
@@ -78,15 +92,131 @@ void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
       m_step = STEP_PREPARE;
    });
    connect(downloader.data(), &DownloadClient::downloadComplete, this, [&](){
-      
+      m_context->response.setDataItem("step", STEP_DOWNLOAD_COMPLETE);
+      m_context->response.setStatus(true);
+      m_context->response.setDataItem("msg", "下载软件包完成");
+      writeInterResponse(m_context->request, m_context->response);
+      m_eventLoop.exit();
+      m_step = STEP_DOWNLOAD_COMPLETE;
    });
    downloader->download(filename);
    m_eventLoop.exec();
 }
 
+void UpgradeCloudControllerWrapper::backupScriptFiles()
+{
+   m_step = STEP_BACKUP_FILES;
+   m_context->response.setDataItem("step", STEP_BACKUP_FILES);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在备份程序文件");
+   writeInterResponse(m_context->request, m_context->response);
+   QString fileModifyMetaFilename(getUpgradeTmpDir()+ '/' +QString(CC_UPGRADE_PKG_NAME_TPL).arg(m_context->fromVersion, m_context->toVersion));
+   QString upgradeDir = fileModifyMetaFilename.mid(0, fileModifyMetaFilename.size() - 7);
+   fileModifyMetaFilename = upgradeDir + QString("/%1_%2.json").arg(m_context->fromVersion, m_context->toVersion);
+   m_context->upgradeDir = upgradeDir;
+   QJsonParseError parserError;
+   QJsonDocument doc = QJsonDocument::fromJson(Filesystem::fileGetContents(fileModifyMetaFilename), &parserError);
+   if(QJsonParseError::NoError != parserError.error){
+      clearState();
+      throw_exception(ErrorInfo("状态错误"), getErrorContext());
+   }
+   QStringList needCopies;
+   QJsonObject rootObj = doc.object();
+   QJsonArray itemsVariant = rootObj.take("delete").toArray();
+   QJsonArray::const_iterator it = itemsVariant.constBegin();
+   QJsonArray::const_iterator endMarker = itemsVariant.constEnd();
+   while(it != endMarker){
+      needCopies.append((*it).toString());
+      m_context->deleteFiles.append((*it).toString());
+      it++;
+   }
+   itemsVariant = rootObj.take("modify").toArray();
+   it = itemsVariant.constBegin();
+   endMarker = itemsVariant.constEnd();
+   while(it != endMarker){
+      needCopies.append((*it).toString());
+      m_context->modifyFiles.append((*it).toString());
+      it++;
+   }
+   itemsVariant = rootObj.take("senchaChangedProjects").toArray();
+   it = itemsVariant.constBegin();
+   endMarker = itemsVariant.constEnd();
+   while(it != endMarker){
+      m_context->senchaChangedProjects.append((*it).toString());
+      it++;
+   }
+   if(needCopies.isEmpty()){
+      return;
+   }
+   QString backupDir(getBackupDir()+QString("/%1_%2").arg(m_context->fromVersion, m_context->toVersion));
+   if(!Filesystem::dirExist(backupDir)){
+      Filesystem::createPath(backupDir);
+   }
+   m_context->response.setDataItem("step", STEP_BACKUP_FILES);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在复制PHP相关文件");
+   writeInterResponse(m_context->request, m_context->response);
+   for(int i = 0; i < needCopies.size(); i++){
+      Filesystem::copyFile(m_deployDir+'/'+needCopies[i], backupDir+'/'+needCopies[i]);
+   }
+   m_context->response.setDataItem("step", STEP_BACKUP_FILES);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在复制JS程序文件");
+   writeInterResponse(m_context->request, m_context->response);
+   //复制js部分
+   Filesystem::traverseFs(m_deployDir+"/PlatformJs", 0, [&](QFileInfo file, int){
+      Filesystem::copyFile(file.absoluteFilePath(), file.absoluteFilePath().replace(m_deployDir, backupDir));
+   });
+}
+
+void UpgradeCloudControllerWrapper::upgradeFiles()
+{
+   m_step = STEP_BACKUP_FILES;
+   m_context->response.setDataItem("step", STEP_UPGRADE_FILES);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在升级程序文件");
+   writeInterResponse(m_context->request, m_context->response);
+   QStringList &modifyFiles = m_context->modifyFiles;
+   for(int i = 0; i < modifyFiles.size(); i++){
+      Filesystem::copyFile(m_context->upgradeDir+'/'+modifyFiles[i], m_deployDir+'/'+modifyFiles[i]);
+   }
+   QStringList &deleteFiles = m_context->deleteFiles;
+   for(int i = 0; i < deleteFiles.size(); i++){
+      Filesystem::deleteFile(deleteFiles[i]);
+   }
+   QString relativeDir("/PlatformJs/build/production");
+   QString senchaProjectDir = m_deployDir+relativeDir;
+   if(!m_context->senchaChangedProjects.isEmpty()){
+      for(QString projectName : m_context->senchaChangedProjects){
+         if(Filesystem::dirExist(senchaProjectDir+'/'+projectName)){
+            Filesystem::deleteDirRecusive(senchaProjectDir+'/'+projectName);
+         }
+         Filesystem::createPath(senchaProjectDir+'/'+projectName);
+         Filesystem::copyDir(m_context->upgradeDir+relativeDir+'/'+projectName, senchaProjectDir);
+      }
+   }
+}
+
 void UpgradeCloudControllerWrapper::clearState()
 {
    m_context.clear();
+}
+
+void UpgradeCloudControllerWrapper::unzipPkg(const QString &pkgFilename)
+{
+   QString targetExtraDir(getUpgradeTmpDir());
+   if(!Filesystem::dirExist(targetExtraDir)){
+      Filesystem::createPath(targetExtraDir);
+   }
+   QProcess process;
+   QStringList args;
+   process.setWorkingDirectory(targetExtraDir);
+   args << "-zxvf" << pkgFilename;
+   process.start("tar", args);
+   bool status = process.waitForFinished(-1);
+   if(!status || process.exitCode() != 0){
+      throw ErrorInfo(process.errorString());
+   }
 }
 
 QSharedPointer<DownloadClient> UpgradeCloudControllerWrapper::getDownloadClient(const QString &host, quint16 port)
@@ -95,6 +225,16 @@ QSharedPointer<DownloadClient> UpgradeCloudControllerWrapper::getDownloadClient(
       m_downloadClient.reset(new DownloadClient(getServiceInvoker(host, port)));
    }
    return m_downloadClient;
+}
+
+QString UpgradeCloudControllerWrapper::getBackupDir()
+{
+   return StdDir::getBaseDataDir()+"/backup";
+}
+
+QString UpgradeCloudControllerWrapper::getUpgradeTmpDir()
+{
+   return StdDir::getBaseDataDir()+"/upgrade/tmp";
 }
 
 }//upgrader
