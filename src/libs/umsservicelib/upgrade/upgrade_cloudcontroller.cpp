@@ -4,6 +4,8 @@
 #include <QJsonArray>
 #include <QJsonParseError>
 #include <QFileInfo>
+#include <QJSEngine>
+#include <QJSValue>
 
 #include "upgrade_cloudcontroller.h"
 
@@ -26,8 +28,11 @@ using umslib::kernel::StdDir;
 using sn::corelib::Filesystem;
 using sn::corelib::throw_exception;
 using sn::corelib::ErrorInfo;
+using sn::corelib::dump_mysql_table;
 
 const QString UpgradeCloudControllerWrapper::CC_UPGRADE_PKG_NAME_TPL = "cloudcontrollerweb_patch_%1_%2.tar.gz";
+const QString UpgradeCloudControllerWrapper::CC_UPGRADE_DB_META_NAME_TPL = "dbmeta_%1_%2.json";
+const QString UpgradeCloudControllerWrapper::CC_UPGRADE_SCRIPT_NAME_TPL = "upgradescript_%1_%2.json";
 
 UpgradeCloudControllerWrapper::UpgradeCloudControllerWrapper(ServiceProvider &provider)
    : AbstractService(provider)
@@ -47,6 +52,12 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    QString softwareRepoDir = StdDir::getSoftwareRepoDir();
    m_context->fromVersion = args.value("fromVersion").toString();
    m_context->toVersion = args.value("toVersion").toString();
+   //获取数据库信息
+   Settings& settings = Application::instance()->getSettings();
+   m_context->dbHost = settings.getValue("dbHost", UMS_CFG_GROUP_GLOBAL).toString();
+   m_context->dbUser = settings.getValue("dbUser", UMS_CFG_GROUP_GLOBAL).toString();
+   m_context->dbPassword = settings.getValue("dbPassword", UMS_CFG_GROUP_GLOBAL).toString();
+   m_context->ccDbName = settings.getValue("cloudControllerDb", UMS_CFG_GROUP_GLOBAL).toString();
    QString baseFilename = QString(CC_UPGRADE_PKG_NAME_TPL).arg(m_context->fromVersion, m_context->toVersion);
    QString upgradePkgFilename = softwareRepoDir + '/' + baseFilename;
    m_context->pkgFilename = upgradePkgFilename;
@@ -66,8 +77,13 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    unzipPkg(m_context->pkgFilename);
    backupScriptFiles();
    upgradeFiles();
+   runUpgradeScript();
+   upgradeComplete();
    response.setSerial(request.getSerial());
    response.setIsFinal(true);
+   response.setStatus(true);
+   response.setDataItem("msg", "升级完成");
+   response.setDataItem("step", STEP_FINISH);
    return response;
 }
 
@@ -118,7 +134,7 @@ void UpgradeCloudControllerWrapper::backupScriptFiles()
    QJsonDocument doc = QJsonDocument::fromJson(Filesystem::fileGetContents(fileModifyMetaFilename), &parserError);
    if(QJsonParseError::NoError != parserError.error){
       clearState();
-      throw_exception(ErrorInfo("状态错误"), getErrorContext());
+      throw_exception(ErrorInfo("文件变动元信息JSON文件解析错误"), getErrorContext());
    }
    QStringList needCopies;
    QJsonObject rootObj = doc.object();
@@ -149,6 +165,7 @@ void UpgradeCloudControllerWrapper::backupScriptFiles()
       return;
    }
    QString backupDir(getBackupDir()+QString("/%1_%2").arg(m_context->fromVersion, m_context->toVersion));
+   m_context->backupDir = backupDir;
    if(!Filesystem::dirExist(backupDir)){
       Filesystem::createPath(backupDir);
    }
@@ -197,9 +214,84 @@ void UpgradeCloudControllerWrapper::upgradeFiles()
    }
 }
 
+void UpgradeCloudControllerWrapper::backupDatabase()
+{
+   m_step = STEP_BACKUP_DB;
+   m_context->response.setDataItem("step", STEP_BACKUP_DB);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在备份数据库");
+   writeInterResponse(m_context->request, m_context->response);
+   QString metaFilename = m_context->upgradeDir+'/'+QString(CC_UPGRADE_DB_META_NAME_TPL)
+         .arg(m_context->fromVersion, m_context->toVersion);
+   if(!Filesystem::fileExist(metaFilename)){
+      return;
+   }
+   QJsonParseError parserError;
+   QJsonDocument doc = QJsonDocument::fromJson(Filesystem::fileGetContents(metaFilename), &parserError);
+   if(QJsonParseError::NoError != parserError.error){
+      clearState();
+      throw_exception(ErrorInfo("文件变动元信息JSON文件解析错误"), getErrorContext());
+   }
+   QStringList needCopies;
+   QJsonObject rootObj = doc.object();
+   QJsonArray itemsVariant = rootObj.take("delete").toArray();
+   QJsonArray::const_iterator it = itemsVariant.constBegin();
+   QJsonArray::const_iterator endMarker = itemsVariant.constEnd();
+   while(it != endMarker){
+      needCopies.append((*it).toString());
+      it++;
+   }
+   itemsVariant = rootObj.take("modify").toArray();
+   it = itemsVariant.constBegin();
+   endMarker = itemsVariant.constEnd();
+   while(it != endMarker){
+      needCopies.append((*it).toString());
+      it++;
+   }
+   QString dbBackupDir = m_context->backupDir+"/dbbackup";
+   if(!Filesystem::dirExist(dbBackupDir)){
+      Filesystem::createPath(dbBackupDir);
+   }
+   for(int i = 0; i < needCopies.size(); i++){
+      m_context->response.setDataItem("msg", QString("正在备份数据表 %1").arg(needCopies[i]));
+      writeInterResponse(m_context->request, m_context->response);
+      dump_mysql_table(m_context->dbUser, m_context->dbPassword, m_context->ccDbName, needCopies[i], dbBackupDir);
+   }
+}
+
+void UpgradeCloudControllerWrapper::runUpgradeScript()
+{
+   m_step = STEP_RUN_UPGRADE_SCRIPT;
+   m_context->response.setDataItem("step", STEP_RUN_UPGRADE_SCRIPT);
+   m_context->response.setStatus(true);
+   m_context->response.setDataItem("msg", "正在运行升级脚本");
+   writeInterResponse(m_context->request, m_context->response);
+   QString upgradeScriptFilename = m_context->upgradeDir+'/'+QString(CC_UPGRADE_SCRIPT_NAME_TPL)
+         .arg(m_context->fromVersion, m_context->toVersion);
+   if(!Filesystem::fileExist(upgradeScriptFilename)){
+      return;
+   }
+   QSharedPointer<UpgradeEnvEngine> scriptEngine = getUpgradeScriptEngine();
+   scriptEngine->exec(upgradeScriptFilename);
+}
+
+void UpgradeCloudControllerWrapper::upgradeComplete()
+{
+   m_step= STEP_FINISH;
+   clearState();
+}
+
 void UpgradeCloudControllerWrapper::clearState()
 {
    m_context.clear();
+   m_step = STEP_PREPARE;
+   if(!m_downloadClient.isNull()){
+      m_downloadClient->disconnect();
+   }
+   //清除残余文件
+   if(!m_serviceInvoker.isNull()){
+      m_serviceInvoker->disconnectFromServer();
+   }
 }
 
 void UpgradeCloudControllerWrapper::unzipPkg(const QString &pkgFilename)
@@ -227,6 +319,21 @@ QSharedPointer<DownloadClient> UpgradeCloudControllerWrapper::getDownloadClient(
    return m_downloadClient;
 }
 
+QSharedPointer<UpgradeEnvEngine> UpgradeCloudControllerWrapper::getUpgradeScriptEngine()
+{
+   if(m_upgradeScriptEngine.isNull()){
+      m_upgradeScriptEngine.reset(new UpgradeEnvEngine(m_context->dbHost, m_context->dbUser, 
+                                                       m_context->dbPassword, m_context->ccDbName));
+      QJSEngine &engine = m_upgradeScriptEngine->getJsEngine();
+      QJSValue env = engine.newObject();
+      env.setProperty("deployDir", m_context->upgradeDir);
+      env.setProperty("backupDir", m_context->backupDir);
+      env.setProperty("upgradeDir", m_context->upgradeDir);
+      m_upgradeScriptEngine->registerContextObject("UpgradeMeta", env, true);
+   }
+   return m_upgradeScriptEngine;
+}
+
 QString UpgradeCloudControllerWrapper::getBackupDir()
 {
    return StdDir::getBaseDataDir()+"/backup";
@@ -235,6 +342,11 @@ QString UpgradeCloudControllerWrapper::getBackupDir()
 QString UpgradeCloudControllerWrapper::getUpgradeTmpDir()
 {
    return StdDir::getBaseDataDir()+"/upgrade/tmp";
+}
+
+void UpgradeCloudControllerWrapper::notifySocketDisconnect(QTcpSocket*)
+{
+   clearState();
 }
 
 }//upgrader

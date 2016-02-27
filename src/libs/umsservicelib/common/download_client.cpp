@@ -2,7 +2,7 @@
 #include "umslib/kernel/stddir.h"
 #include "download_client.h"
 #include "corelib/io/filesystem.h"
-
+#include <QDebug>
 
 namespace umsservice{
 namespace common{

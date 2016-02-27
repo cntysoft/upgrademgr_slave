@@ -15,7 +15,7 @@ Product
    targetName : "umsservice"
    Depends { 
       name: "Qt"; 
-      submodules: ["core", "network","websockets"]
+      submodules: ["core", "network","websockets","qml"]
    }
    Depends { name:"corelib"}
    Depends { name:"umslib"}
