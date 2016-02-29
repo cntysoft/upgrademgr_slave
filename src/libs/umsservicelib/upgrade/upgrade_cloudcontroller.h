@@ -67,7 +67,7 @@ protected:
    void backupDatabase();
    void runUpgradeScript();
    void upgradeComplete();
-   
+   void checkVersion();
    QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);
    void clearState();
    QString getBackupDir();

@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QJSEngine>
 #include <QJSValue>
+#include <QFile>
 
 #include "upgrade_cloudcontroller.h"
 
@@ -16,7 +17,7 @@
 #include "io/filesystem.h"
 #include "corelib/global/common_funcs.h"
 #include "corelib/kernel/errorinfo.h"
-
+#include "corelib/utils/version.h"
 #include <QDebug>
 
 namespace umsservice{
@@ -29,6 +30,7 @@ using sn::corelib::Filesystem;
 using sn::corelib::throw_exception;
 using sn::corelib::ErrorInfo;
 using sn::corelib::dump_mysql_table;
+using sn::corelib::utils::Version;
 
 const QString UpgradeCloudControllerWrapper::CC_UPGRADE_PKG_NAME_TPL = "cloudcontrollerweb_patch_%1_%2.tar.gz";
 const QString UpgradeCloudControllerWrapper::CC_UPGRADE_DB_META_NAME_TPL = "dbmeta_%1_%2.json";
@@ -52,6 +54,7 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    QString softwareRepoDir = StdDir::getSoftwareRepoDir();
    m_context->fromVersion = args.value("fromVersion").toString();
    m_context->toVersion = args.value("toVersion").toString();
+   checkVersion();
    //获取数据库信息
    Settings& settings = Application::instance()->getSettings();
    m_context->dbHost = settings.getValue("dbHost", UMS_CFG_GROUP_GLOBAL).toString();
@@ -85,6 +88,29 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    response.setDataItem("msg", "升级完成");
    response.setDataItem("step", STEP_FINISH);
    return response;
+}
+
+void UpgradeCloudControllerWrapper::checkVersion()
+{
+   QString versionFilename = m_deployDir + "/VERSION";
+   //无版本文件强行更新
+   if(!Filesystem::fileExist(versionFilename)){
+      return;
+   }
+   QString versionStr = QString(Filesystem::fileGetContents(versionFilename));
+   Version currentVersion(versionStr);
+   Version fromVersion(m_context->fromVersion);
+   Version toVersion(m_context->toVersion);
+   if(toVersion <= currentVersion){
+      clearState();
+      throw_exception(ErrorInfo("系统已经是最新版，无须更新"), getErrorContext());
+      return;
+   }
+   if(fromVersion != currentVersion){
+      clearState();
+      throw_exception(ErrorInfo("起始版本跟系统当前版本号不一致"), getErrorContext());
+      return;
+   }
 }
 
 void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
@@ -278,6 +304,9 @@ void UpgradeCloudControllerWrapper::runUpgradeScript()
 void UpgradeCloudControllerWrapper::upgradeComplete()
 {
    m_step= STEP_FINISH;
+   //更新版本文件
+   QString versionFilename = m_deployDir + "/VERSION";
+   Filesystem::filePutContents(versionFilename, m_context->toVersion);
    clearState();
 }
 
@@ -326,13 +355,15 @@ QSharedPointer<UpgradeEnvEngine> UpgradeCloudControllerWrapper::getUpgradeScript
                                                        m_context->dbPassword, m_context->ccDbName));
       QJSEngine &engine = m_upgradeScriptEngine->getJsEngine();
       QJSValue env = engine.newObject();
-      env.setProperty("deployDir", m_context->upgradeDir);
+      env.setProperty("deployDir", m_deployDir);
       env.setProperty("backupDir", m_context->backupDir);
       env.setProperty("upgradeDir", m_context->upgradeDir);
       m_upgradeScriptEngine->registerContextObject("UpgradeMeta", env, true);
    }
    return m_upgradeScriptEngine;
 }
+
+
 
 QString UpgradeCloudControllerWrapper::getBackupDir()
 {

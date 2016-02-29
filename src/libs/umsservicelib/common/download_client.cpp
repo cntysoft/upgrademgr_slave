@@ -34,11 +34,18 @@ void download_cycle_handler(const ServiceInvokeResponse &response, void* args)
       self->clearState();
    }else{
       //保存数据
-      self->m_context->downloadPointer += response.getDataItem("dataSize").toInt();
-      self->m_context->targetFile->write(response.getExtraData());
+      QByteArray data = QByteArray::fromBase64(response.getExtraData());
+      if(data.size() == 0){
+         self->downloadCycle();
+         return;
+      }else{
+         self->m_context->downloadPointer += data.size();
+         self->m_context->targetFile->write(data);
+      }
       if(self->m_context->downloadPointer < self->m_context->fileSize){
          self->downloadCycle();
       }else{
+         self->m_context->targetFile->flush();
          self->m_context->targetFile->close();
          ServiceInvokeRequest request("Common/DownloadServer", "notifyComplete");
          self->m_serviceInvoker->request(request);
