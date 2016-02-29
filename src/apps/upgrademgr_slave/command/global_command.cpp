@@ -28,7 +28,7 @@ GlobalVersionCommand::GlobalVersionCommand(AbstractCommandRunner& runner, const 
 
 void GlobalVersionCommand::exec()
 {
-   printConsoleMsg("upgrademgr master version ");
+   printConsoleMsg("upgrademgr slave version ");
    printConsoleMsg(QString("%1\n").arg(UMS_VERSION).toLocal8Bit(), TerminalColor::Cyan);
    exit(EXIT_SUCCESS);
 }
