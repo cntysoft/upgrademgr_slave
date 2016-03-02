@@ -41,8 +41,8 @@ public:
       QString dbUser;
       QString dbPassword;
       QString ccDbName;
-      bool upgradeScriptExecStatus;
-      QString upgradeScriptErrorString;
+      bool upgradeStatus;
+      QString upgradeErrorString;
    };
    const static int STEP_PREPARE = -1;
    const static int STEP_INIT_CONTEXT = 0;

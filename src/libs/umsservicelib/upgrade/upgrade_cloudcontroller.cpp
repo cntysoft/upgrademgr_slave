@@ -54,7 +54,7 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    QMap<QString, QVariant> args = request.getArgs();
    checkRequireFields(args, {"fromVersion", "toVersion"});
    QString softwareRepoDir = StdDir::getSoftwareRepoDir();
-   m_context->upgradeScriptExecStatus = true;
+   m_context->upgradeStatus = true;
    m_context->fromVersion = args.value("fromVersion").toString();
    m_context->toVersion = args.value("toVersion").toString();
    checkVersion();
@@ -76,6 +76,16 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    //      downloadUpgradePkg(baseFilename);
    //   }
    downloadUpgradePkg(baseFilename);
+   if(!m_context->upgradeStatus){
+      response.setDataItem("step", STEP_DOWNLOAD_PKG);
+      response.setDataItem("msg", m_context->upgradeErrorString);
+      writeInterResponse(request, response);
+      response.setStatus(false);
+      response.setDataItem("step", STEP_ERROR);
+      response.setError({-1, "升级失败"});
+      clearState();
+      return response;
+   }
    m_context->response.setDataItem("step", STEP_EXTRA_PKG);
    m_context->response.setDataItem("msg", "正在解压升级压缩包");
    m_context->response.setStatus(true);
@@ -84,8 +94,8 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    backupScriptFiles();
    upgradeFiles();
    runUpgradeScript();
-   if(!m_context->upgradeScriptExecStatus){
-      response.setDataItem("msg", m_context->upgradeScriptErrorString);
+   if(!m_context->upgradeStatus){
+      response.setDataItem("msg", m_context->upgradeErrorString);
       writeInterResponse(request, response);
       response.setStatus(false);
       response.setDataItem("step", STEP_ERROR);
@@ -134,14 +144,12 @@ void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
       m_context->response.setDataItem("msg", "开始下载软件包");
       writeInterResponse(m_context->request, m_context->response);
    });
-   QObject::connect(downloader.data(), &DownloadClient::downloadError, this, [&](int errorCode, const QString &errorMsg){
-      m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
-      m_context->response.setStatus(false);
-      m_context->response.setError({errorCode, errorMsg});
-      writeInterResponse(m_context->request, m_context->response);
+   QObject::connect(downloader.data(), &DownloadClient::downloadError, this, [&](int, const QString &errorMsg){
       m_eventLoop.exit();
       m_isInAction = false;
       m_step = STEP_PREPARE;
+      m_context->upgradeStatus = false;
+      m_context->upgradeErrorString = errorMsg;
    });
    connect(downloader.data(), &DownloadClient::downloadComplete, this, [&](){
       m_context->response.setDataItem("step", STEP_DOWNLOAD_COMPLETE);
@@ -378,8 +386,8 @@ QSharedPointer<UpgradeEnvEngine> UpgradeCloudControllerWrapper::getUpgradeScript
       env.setProperty("upgradeDir", m_context->upgradeDir);
       m_upgradeScriptEngine->registerContextObject("UpgradeMeta", env, true);
       connect(m_upgradeScriptEngine.data(),& UpgradeEnvEngine::excpetionSignal, [&](ErrorInfo errorInfo){
-         m_context->upgradeScriptExecStatus = false;
-         m_context->upgradeScriptErrorString = errorInfo.toString();
+         m_context->upgradeStatus = false;
+         m_context->upgradeErrorString = errorInfo.toString();
       });
       connect(m_upgradeScriptEngine.data(),& UpgradeEnvEngine::logMsgSignal, [&](const QString &msg){
          m_context->response.setDataItem("msg", msg);
