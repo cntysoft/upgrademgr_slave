@@ -29,7 +29,7 @@ GlobalVersionCommand::GlobalVersionCommand(AbstractCommandRunner& runner, const 
 void GlobalVersionCommand::exec()
 {
    printConsoleMsg("upgrademgr slave version ");
-   printConsoleMsg(QString("%1\n").arg(UMS_VERSION).toLocal8Bit(), TerminalColor::Cyan);
+   printConsoleMsg(QString("%1\n").arg(UMS_VERSION), TerminalColor::Cyan);
    exit(EXIT_SUCCESS);
 }
 

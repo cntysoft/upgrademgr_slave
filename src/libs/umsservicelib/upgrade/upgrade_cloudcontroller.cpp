@@ -34,7 +34,7 @@ using sn::corelib::utils::Version;
 
 const QString UpgradeCloudControllerWrapper::CC_UPGRADE_PKG_NAME_TPL = "cloudcontrollerweb_patch_%1_%2.tar.gz";
 const QString UpgradeCloudControllerWrapper::CC_UPGRADE_DB_META_NAME_TPL = "dbmeta_%1_%2.json";
-const QString UpgradeCloudControllerWrapper::CC_UPGRADE_SCRIPT_NAME_TPL = "upgradescript_%1_%2.json";
+const QString UpgradeCloudControllerWrapper::CC_UPGRADE_SCRIPT_NAME_TPL = "upgradescript_%1_%2.js";
 
 UpgradeCloudControllerWrapper::UpgradeCloudControllerWrapper(ServiceProvider &provider)
    : AbstractService(provider)
@@ -52,6 +52,7 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    QMap<QString, QVariant> args = request.getArgs();
    checkRequireFields(args, {"fromVersion", "toVersion"});
    QString softwareRepoDir = StdDir::getSoftwareRepoDir();
+   m_context->upgradeScriptExecStatus = true;
    m_context->fromVersion = args.value("fromVersion").toString();
    m_context->toVersion = args.value("toVersion").toString();
    checkVersion();
@@ -81,6 +82,15 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    backupScriptFiles();
    upgradeFiles();
    runUpgradeScript();
+   if(!m_context->upgradeScriptExecStatus){
+      response.setDataItem("msg", m_context->upgradeScriptErrorString);
+      writeInterResponse(request, response);
+      response.setStatus(false);
+      response.setDataItem("step", STEP_ERROR);
+      response.setError({-1, "升级失败"});
+      clearState();
+      return response;
+   }
    upgradeComplete();
    response.setSerial(request.getSerial());
    response.setIsFinal(true);
@@ -104,12 +114,10 @@ void UpgradeCloudControllerWrapper::checkVersion()
    if(toVersion <= currentVersion){
       clearState();
       throw_exception(ErrorInfo("系统已经是最新版，无须更新"), getErrorContext());
-      return;
    }
    if(fromVersion != currentVersion){
       clearState();
       throw_exception(ErrorInfo("起始版本跟系统当前版本号不一致"), getErrorContext());
-      return;
    }
 }
 
@@ -285,7 +293,7 @@ void UpgradeCloudControllerWrapper::backupDatabase()
    }
 }
 
-void UpgradeCloudControllerWrapper::runUpgradeScript()
+bool UpgradeCloudControllerWrapper::runUpgradeScript()
 {
    m_step = STEP_RUN_UPGRADE_SCRIPT;
    m_context->response.setDataItem("step", STEP_RUN_UPGRADE_SCRIPT);
@@ -295,10 +303,10 @@ void UpgradeCloudControllerWrapper::runUpgradeScript()
    QString upgradeScriptFilename = m_context->upgradeDir+'/'+QString(CC_UPGRADE_SCRIPT_NAME_TPL)
          .arg(m_context->fromVersion, m_context->toVersion);
    if(!Filesystem::fileExist(upgradeScriptFilename)){
-      return;
+      return true;
    }
    QSharedPointer<UpgradeEnvEngine> scriptEngine = getUpgradeScriptEngine();
-   scriptEngine->exec(upgradeScriptFilename);
+   return scriptEngine->exec(upgradeScriptFilename);
 }
 
 void UpgradeCloudControllerWrapper::upgradeComplete()
@@ -316,6 +324,10 @@ void UpgradeCloudControllerWrapper::clearState()
    m_step = STEP_PREPARE;
    if(!m_downloadClient.isNull()){
       m_downloadClient->disconnect();
+      m_downloadClient->clearState();
+   }
+   if(!m_upgradeScriptEngine.isNull()){
+      m_upgradeScriptEngine->disconnect();
    }
    //清除残余文件
    if(!m_serviceInvoker.isNull()){
@@ -359,6 +371,15 @@ QSharedPointer<UpgradeEnvEngine> UpgradeCloudControllerWrapper::getUpgradeScript
       env.setProperty("backupDir", m_context->backupDir);
       env.setProperty("upgradeDir", m_context->upgradeDir);
       m_upgradeScriptEngine->registerContextObject("UpgradeMeta", env, true);
+      connect(m_upgradeScriptEngine.data(),& UpgradeEnvEngine::excpetionSignal, [&](ErrorInfo errorInfo){
+         m_context->upgradeScriptExecStatus = false;
+         m_context->upgradeScriptErrorString = errorInfo.toString();
+      });
+      connect(m_upgradeScriptEngine.data(),& UpgradeEnvEngine::logMsgSignal, [&](const QString &msg){
+         m_context->response.setDataItem("msg", msg);
+         m_context->response.setDataItem("step", STEP_RUN_UPGRADE_SCRIPT);
+         writeInterResponse(m_context->request, m_context->response);
+      });
    }
    return m_upgradeScriptEngine;
 }

@@ -42,10 +42,13 @@ public:
    void download(const QString &filename);
    void emitDownloadError(int errorCode, const QString &errorMsg);
    void emitDownloadComplete();
-protected:
    void clearState();
+   ~DownloadClient();
+protected:
    void beginRetrieveData();
    void downloadCycle();
+protected slots:
+   void connectToServerHandler();
 signals:
    void beginDownload();
    void downloadError(int errorCode, const QString &errorMsg);

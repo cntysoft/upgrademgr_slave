@@ -41,6 +41,8 @@ public:
       QString dbUser;
       QString dbPassword;
       QString ccDbName;
+      bool upgradeScriptExecStatus;
+      QString upgradeScriptErrorString;
    };
    const static int STEP_PREPARE = -1;
    const static int STEP_INIT_CONTEXT = 0;
@@ -53,6 +55,7 @@ public:
    const static int STEP_RUN_UPGRADE_SCRIPT = 7;
    const static int STEP_CLEANUP = 8;
    const static int STEP_FINISH = 9;
+   const static int STEP_ERROR = 10;
    
    const static QString CC_UPGRADE_PKG_NAME_TPL;
    const static QString CC_UPGRADE_DB_META_NAME_TPL;
@@ -65,7 +68,7 @@ protected:
    void backupScriptFiles();
    void upgradeFiles();
    void backupDatabase();
-   void runUpgradeScript();
+   bool runUpgradeScript();
    void upgradeComplete();
    void checkVersion();
    QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);

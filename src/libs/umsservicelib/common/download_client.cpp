@@ -34,7 +34,7 @@ void download_cycle_handler(const ServiceInvokeResponse &response, void* args)
       self->clearState();
    }else{
       //保存数据
-      QByteArray data = QByteArray::fromBase64(response.getExtraData());
+      QByteArray data = response.getExtraData();
       if(data.size() == 0){
          self->downloadCycle();
          return;
@@ -68,6 +68,7 @@ void DownloadClient::emitDownloadComplete()
 DownloadClient::DownloadClient(QSharedPointer<ServiceInvoker> serviceInvoker)
    :m_serviceInvoker(serviceInvoker)
 {
+   connect(m_serviceInvoker.data(), &ServiceInvoker::connectedToServerSignal, this, &DownloadClient::connectToServerHandler);
 }
 
 void DownloadClient::download(const QString &filename)
@@ -75,14 +76,16 @@ void DownloadClient::download(const QString &filename)
    emit beginDownload();
    m_step = DOWNLOAD_STEP_START;
    m_serviceInvoker->connectToServer();
-   connect(m_serviceInvoker.data(), &ServiceInvoker::connectedToServerSignal, this, [&](){
-      ServiceInvokeRequest request("Common/DownloadServer", "init", {
-                                      {"filename", filename}
-                                   });
-      m_serviceInvoker->request(request, init_download_handler, static_cast<void*>(this));
-   });
    m_context.reset(new DownloadContext);
    m_context->filename = filename;
+}
+
+void DownloadClient::connectToServerHandler()
+{
+   ServiceInvokeRequest request("Common/DownloadServer", "init", {
+                                   {"filename", m_context->filename}
+                                });
+   m_serviceInvoker->request(request, init_download_handler, static_cast<void*>(this));
 }
 
 void DownloadClient::beginRetrieveData()
@@ -114,9 +117,13 @@ void DownloadClient::downloadCycle()
    m_serviceInvoker->request(request, download_cycle_handler, static_cast<void*>(this));
 }
 
+DownloadClient::~DownloadClient()
+{
+   disconnect(m_serviceInvoker.data(), &ServiceInvoker::connectedToServerSignal, this, &DownloadClient::connectToServerHandler);
+}
 void DownloadClient::clearState()
 {
-   if(nullptr != m_context->targetFile){
+   if(!m_context.isNull() && nullptr != m_context->targetFile){
       delete m_context->targetFile;
    }
    m_context.clear();

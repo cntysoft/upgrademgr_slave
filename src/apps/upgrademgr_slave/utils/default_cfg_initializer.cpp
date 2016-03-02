@@ -24,7 +24,7 @@ static void init_global_cfg(Settings& settings)
    settings.setValue("upgrademgrMasterHost", "127.0.0.1", UMS_CFG_GROUP_GLOBAL);
    settings.setValue("upgrademgrMasterPort", UMM_LISTEN_PORT, UMS_CFG_GROUP_GLOBAL);
    settings.setValue("dbHost", "localhost", UMS_CFG_GROUP_GLOBAL);
-   settings.setValue("dbUser", "cntysoft", UMS_CFG_GROUP_GLOBAL);
+   settings.setValue("dbUser", "root", UMS_CFG_GROUP_GLOBAL);
    settings.setValue("dbPassword", "cntysoft", UMS_CFG_GROUP_GLOBAL);
    settings.setValue("cloudControllerDb", "cloudcontroller", UMS_CFG_GROUP_GLOBAL);
 }
