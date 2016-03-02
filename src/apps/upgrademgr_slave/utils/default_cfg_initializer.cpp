@@ -27,6 +27,8 @@ static void init_global_cfg(Settings& settings)
    settings.setValue("dbUser", "root", UMS_CFG_GROUP_GLOBAL);
    settings.setValue("dbPassword", "cntysoft", UMS_CFG_GROUP_GLOBAL);
    settings.setValue("cloudControllerDb", "cloudcontroller", UMS_CFG_GROUP_GLOBAL);
+   settings.setValue("cloudControllerUserId", 30, UMS_CFG_GROUP_GLOBAL);
+   settings.setValue("cloudControllerGroupId", 8, UMS_CFG_GROUP_GLOBAL);
 }
 
 

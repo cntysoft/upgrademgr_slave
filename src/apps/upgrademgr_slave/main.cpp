@@ -3,9 +3,11 @@
 
 #include "corelib/io/terminal.h"
 #include "corelib/kernel/errorinfo.h"
+#include <QCoreApplication>
 
 #include "application.h"
 #include "command_runner.h"
+#include <QDebug>
 
 using UpgrademgrSlaveApplication = upgrademgr::slave::Application;
 using CommandRunner = upgrademgr::slave::CommandRunner;

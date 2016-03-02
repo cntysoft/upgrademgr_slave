@@ -86,6 +86,8 @@ protected:
    QString m_deployDir;
    QSharedPointer<DownloadClient> m_downloadClient;
    QSharedPointer<UpgradeEnvEngine> m_upgradeScriptEngine;
+   int m_userId;
+   int m_groupId;
 };
 
 }//upgrader

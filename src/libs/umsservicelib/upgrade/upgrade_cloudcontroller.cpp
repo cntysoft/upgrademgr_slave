@@ -41,6 +41,8 @@ UpgradeCloudControllerWrapper::UpgradeCloudControllerWrapper(ServiceProvider &pr
 {
    Settings& settings = Application::instance()->getSettings();
    m_deployDir = settings.getValue("cloudControllerWebRootDir", UMS_CFG_GROUP_GLOBAL, "/srv/www/cloudcontroller").toString();
+   m_userId = settings.getValue("cloudControllerUserId", UMS_CFG_GROUP_GLOBAL, 30).toInt();
+   m_groupId = settings.getValue("cloudControllerGroupId", UMS_CFG_GROUP_GLOBAL, 8).toInt();
 }
 
 ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvokeRequest &request)
@@ -315,6 +317,10 @@ void UpgradeCloudControllerWrapper::upgradeComplete()
    //更新版本文件
    QString versionFilename = m_deployDir + "/VERSION";
    Filesystem::filePutContents(versionFilename, m_context->toVersion);
+   //设置权限
+   Filesystem::traverseFs(m_deployDir, 0, [&](QFileInfo &fileinfo, int){
+      Filesystem::chown(fileinfo.absoluteFilePath(), m_userId, m_groupId);
+   });
    clearState();
 }
 
@@ -383,8 +389,6 @@ QSharedPointer<UpgradeEnvEngine> UpgradeCloudControllerWrapper::getUpgradeScript
    }
    return m_upgradeScriptEngine;
 }
-
-
 
 QString UpgradeCloudControllerWrapper::getBackupDir()
 {
