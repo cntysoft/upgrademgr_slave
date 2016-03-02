@@ -229,7 +229,7 @@ void UpgradeCloudControllerWrapper::upgradeFiles()
    writeInterResponse(m_context->request, m_context->response);
    QStringList &modifyFiles = m_context->modifyFiles;
    for(int i = 0; i < modifyFiles.size(); i++){
-      Filesystem::copyFile(m_context->upgradeDir+'/'+modifyFiles[i], m_deployDir+'/'+modifyFiles[i]);
+      Filesystem::copyFile(m_context->upgradeDir+'/'+modifyFiles[i], m_deployDir+'/'+modifyFiles[i], true);
    }
    QStringList &deleteFiles = m_context->deleteFiles;
    for(int i = 0; i < deleteFiles.size(); i++){
