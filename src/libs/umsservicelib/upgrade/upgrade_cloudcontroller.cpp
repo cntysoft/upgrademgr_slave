@@ -139,26 +139,6 @@ void UpgradeCloudControllerWrapper::downloadUpgradePkg(const QString &filename)
    Settings& settings = Application::instance()->getSettings();
    QSharedPointer<DownloadClient> downloader = getDownloadClient(settings.getValue("upgrademgrMasterHost").toString(), 
                                                                  settings.getValue("upgrademgrMasterPort").toInt());
-   connect(downloader.data(), &DownloadClient::beginDownload, this, [&](){
-      m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
-      m_context->response.setDataItem("msg", "开始下载软件包");
-      writeInterResponse(m_context->request, m_context->response);
-   });
-   QObject::connect(downloader.data(), &DownloadClient::downloadError, this, [&](int, const QString &errorMsg){
-      m_eventLoop.exit();
-      m_isInAction = false;
-      m_step = STEP_PREPARE;
-      m_context->upgradeStatus = false;
-      m_context->upgradeErrorString = errorMsg;
-   });
-   connect(downloader.data(), &DownloadClient::downloadComplete, this, [&](){
-      m_context->response.setDataItem("step", STEP_DOWNLOAD_COMPLETE);
-      m_context->response.setStatus(true);
-      m_context->response.setDataItem("msg", "下载软件包完成");
-      writeInterResponse(m_context->request, m_context->response);
-      m_eventLoop.exit();
-      m_step = STEP_DOWNLOAD_COMPLETE;
-   });
    downloader->download(filename);
    m_eventLoop.exec();
 }
@@ -337,11 +317,7 @@ void UpgradeCloudControllerWrapper::clearState()
    m_context.clear();
    m_step = STEP_PREPARE;
    if(!m_downloadClient.isNull()){
-      m_downloadClient->disconnect();
       m_downloadClient->clearState();
-   }
-   if(!m_upgradeScriptEngine.isNull()){
-      m_upgradeScriptEngine->disconnect();
    }
    //清除残余文件
    if(!m_serviceInvoker.isNull()){
@@ -370,6 +346,26 @@ QSharedPointer<DownloadClient> UpgradeCloudControllerWrapper::getDownloadClient(
 {
    if(m_downloadClient.isNull()){
       m_downloadClient.reset(new DownloadClient(getServiceInvoker(host, port)));
+      connect(m_downloadClient.data(), &DownloadClient::beginDownload, this, [&](){
+         m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
+         m_context->response.setDataItem("msg", "开始下载软件包");
+         writeInterResponse(m_context->request, m_context->response);
+      });
+      QObject::connect(m_downloadClient.data(), &DownloadClient::downloadError, this, [&](int, const QString &errorMsg){
+         m_eventLoop.exit();
+         m_isInAction = false;
+         m_step = STEP_PREPARE;
+         m_context->upgradeStatus = false;
+         m_context->upgradeErrorString = errorMsg;
+      });
+      connect(m_downloadClient.data(), &DownloadClient::downloadComplete, this, [&](){
+         m_context->response.setDataItem("step", STEP_DOWNLOAD_COMPLETE);
+         m_context->response.setStatus(true);
+         m_context->response.setDataItem("msg", "下载软件包完成");
+         writeInterResponse(m_context->request, m_context->response);
+         m_eventLoop.exit();
+         m_step = STEP_DOWNLOAD_COMPLETE;
+      });
    }
    return m_downloadClient;
 }
