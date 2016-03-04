@@ -7,8 +7,10 @@ Product
         "global_defs.h",
         "macros.h",
         "service_repo.h",
-        "upgrade/upgrade_cloudcontroller.cpp",
         "upgrade/upgrade_cloudcontroller.h",
+        "upgrade/upgrade_cloudcontroller_wrapper.cpp",
+        "upgrade/upgrade_upgrademgr_slave.h",
+        "upgrade/upgrade_upgrademgr_slave_wrapper.cpp",
     ]
    type: "dynamiclibrary"
    name : "umsservicelib"
