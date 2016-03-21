@@ -46,7 +46,7 @@ ServiceInvokeResponse UpgradeLuoXiWrapper::upgrade(const ServiceInvokeRequest &r
    m_context->targetVersion = args.value("targetVersion").toString();
    QString targetVersionStr = m_context->targetVersion;
    m_context->request = request;
-   ServiceInvokeResponse response("Upgrader/UpgradeLuoXiWrapper/upgrade", true);
+   ServiceInvokeResponse response("Upgrader/UpgradeLuoXi/upgrade", true);
    response.setSerial(request.getSerial());
    response.setDataItem("msg", "开始准备更新");
    writeInterResponse(request, response);
@@ -93,6 +93,7 @@ ServiceInvokeResponse UpgradeLuoXiWrapper::upgrade(const ServiceInvokeRequest &r
    }
    response.setDataItem("step", STEP_FINISH);
    response.setDataItem("msg", "升级成功");
+   clearState();
    return response;
 }
 

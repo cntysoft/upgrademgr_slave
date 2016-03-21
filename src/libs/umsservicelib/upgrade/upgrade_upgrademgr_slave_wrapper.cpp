@@ -16,6 +16,7 @@
 
 #include "corelib/kernel/application.h"
 #include "corelib/utils/version.h"
+#include "corelib/kernel/settings.h"
 
 namespace umsservice{
 namespace upgrader{
@@ -25,6 +26,7 @@ using umslib::kernel::StdDir;
 using sn::corelib::Filesystem;
 using sn::corelib::utils::Version;
 using sn::corelib::Application;
+using sn::corelib::Settings;
 
 const QString UpgradeUpgradeMgrSlaveWrapper::RPM_FILENAME_TPL = "upgrademgr_slave-%1-1.x86_64.rpm";
 
@@ -36,6 +38,8 @@ UpgradeUpgradeMgrSlaveWrapper::UpgradeUpgradeMgrSlaveWrapper(ServiceProvider &pr
 
 ServiceInvokeResponse UpgradeUpgradeMgrSlaveWrapper::upgrade(const ServiceInvokeRequest &request)
 {
+   m_context.reset(new UpgradeContext);
+   m_context->upgradeStatus = true;
    const QMap<QString, QVariant> &args = request.getArgs();
    checkRequireFields(args, {"targetVersion"});
    ServiceInvokeResponse response("Upgrader/UpgradeUpgradeMgrSlave/upgrade", true);
@@ -56,17 +60,30 @@ ServiceInvokeResponse UpgradeUpgradeMgrSlaveWrapper::upgrade(const ServiceInvoke
       return response;
    }
    response.setDataItem("msg", "开始检查指定版本的服务器RPM包");
+   m_context->response = response;
    QString filename = m_softwareRepoDir + "/" +QString(RPM_FILENAME_TPL).arg(targetVersionStr);
-   if(!Filesystem::fileExist(filename)){
-      response.setError({1, QString("软件包:%1不存在").arg(filename)});
+   m_context->pkgFilename = filename;
+   m_step = STEP_DOWNLOAD_PKG;
+   response.setDataItem("msg", "开始下载软件包");
+   writeInterResponse(request, response);
+   downloadUpgradePkg(QString(RPM_FILENAME_TPL).arg(targetVersionStr));
+   if(!m_context->upgradeStatus){
+      response.setDataItem("step", STEP_DOWNLOAD_PKG);
+      response.setDataItem("msg", m_context->upgradeErrorString);
+      writeInterResponse(request, response);
       response.setStatus(false);
+      response.setDataItem("step", STEP_ERROR);
+      response.setError({-1, "升级失败"});
+      clearState();
       return response;
    }
+   m_step = STEP_INSTALL_RPM;
    response.setDataItem("msg", "开始安装RPM包");
    writeInterResponse(request, response);
    QString errorString;
    int status = installRpmPackage(filename, errorString);
    if(!status){
+      response.setDataItem("step", STEP_INSTALL_RPM);
       response.setStatus(false);
       response.setError({1, errorString});
       return response;
@@ -77,8 +94,50 @@ ServiceInvokeResponse UpgradeUpgradeMgrSlaveWrapper::upgrade(const ServiceInvoke
    umslib::network::MultiThreadServer *& server = umslib::network::get_global_server();
    server->close();
    Application::instance()->exit(1);
+   response.setDataItem("step", STEP_FINISH);
+   response.setDataItem("msg", "升级成功");
+   clearState();
    return response;
 }
+
+void UpgradeUpgradeMgrSlaveWrapper::downloadUpgradePkg(const QString &filename)
+{
+   //获取相关的配置信息
+   Settings& settings = Application::instance()->getSettings();
+   QSharedPointer<DownloadClientWrapper> downloader = getDownloadClient(settings.getValue("upgrademgrMasterHost").toString(), 
+                                                                 settings.getValue("upgrademgrMasterPort").toInt());
+   downloader->download(filename);
+   m_eventLoop.exec();
+}
+
+QSharedPointer<DownloadClientWrapper> UpgradeUpgradeMgrSlaveWrapper::getDownloadClient(const QString &host, quint16 port)
+{
+   if(m_downloadClient.isNull()){
+      m_downloadClient.reset(new DownloadClientWrapper(getServiceInvoker(host, port)));
+      connect(m_downloadClient.data(), &DownloadClientWrapper::beginDownload, this, [&](){
+         m_context->response.setDataItem("step", STEP_DOWNLOAD_PKG);
+         m_context->response.setDataItem("msg", "开始下载软件包");
+         writeInterResponse(m_context->request, m_context->response);
+      });
+      QObject::connect(m_downloadClient.data(), &DownloadClientWrapper::downloadError, this, [&](int, const QString &errorMsg){
+         m_eventLoop.exit();
+         m_isInAction = false;
+         m_step = STEP_PREPARE;
+         m_context->upgradeStatus = false;
+         m_context->upgradeErrorString = errorMsg;
+      });
+      connect(m_downloadClient.data(), &DownloadClientWrapper::downloadComplete, this, [&](){
+         m_context->response.setDataItem("step", STEP_DOWNLOAD_COMPLETE);
+         m_context->response.setStatus(true);
+         m_context->response.setDataItem("msg", "下载软件包完成");
+         writeInterResponse(m_context->request, m_context->response);
+         m_eventLoop.exit();
+         m_step = STEP_DOWNLOAD_COMPLETE;
+      });
+   }
+   return m_downloadClient;
+}
+
 
 bool UpgradeUpgradeMgrSlaveWrapper::installRpmPackage(const QString &filename, QString &errorString)
 {
@@ -94,6 +153,25 @@ bool UpgradeUpgradeMgrSlaveWrapper::installRpmPackage(const QString &filename, Q
    }
    return true;
 }
+
+void UpgradeUpgradeMgrSlaveWrapper::clearState()
+{
+   m_context.clear();
+   m_step = STEP_PREPARE;
+   if(!m_downloadClient.isNull()){
+      m_downloadClient->clearState();
+   }
+   //清除残余文件
+   if(!m_serviceInvoker.isNull()){
+      m_serviceInvoker->disconnectFromServer();
+   }
+}
+
+void UpgradeUpgradeMgrSlaveWrapper::notifySocketDisconnect(QTcpSocket*)
+{
+   clearState();
+}
+
 
 }//upgrader
 }//umsservice

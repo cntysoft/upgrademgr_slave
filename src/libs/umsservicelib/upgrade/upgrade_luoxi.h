@@ -50,7 +50,7 @@ protected:
    bool installRpmPackage(const QString &filename, QString &errorString);
    void clearState();
    QSharedPointer<DownloadClientWrapper> getDownloadClient(const QString &host, quint16 port);
-      int getLuoXiPid();
+   int getLuoXiPid();
 protected:
    virtual void notifySocketDisconnect(QTcpSocket *socket);
 protected:
