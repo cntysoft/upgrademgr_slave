@@ -17,7 +17,7 @@ namespace upgrader{
 
 UMS_USING_SERVICE_NAMESPACES
 
-using umsservice::common::DownloadClient;
+using umsservice::common::DownloadClientWrapper;
 
 class UMS_SERVICE_EXPORT UpgradeLuoXiWrapper : public AbstractService
 {
@@ -49,7 +49,7 @@ protected:
    void downloadUpgradePkg(const QString &filename);
    bool installRpmPackage(const QString &filename, QString &errorString);
    void clearState();
-   QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);
+   QSharedPointer<DownloadClientWrapper> getDownloadClient(const QString &host, quint16 port);
       int getLuoXiPid();
 protected:
    virtual void notifySocketDisconnect(QTcpSocket *socket);
@@ -58,7 +58,7 @@ protected:
    bool m_isInAction = false;
    QSharedPointer<UpgradeContext> m_context;
    int m_step = STEP_PREPARE;
-   QSharedPointer<DownloadClient> m_downloadClient;
+   QSharedPointer<DownloadClientWrapper> m_downloadClient;
 };
 
 }//upgrader

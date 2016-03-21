@@ -15,9 +15,6 @@ void init_service_provider()
    provider.addServiceToPool("Upgrader/UpgradeCloudController", [](ServiceProvider& provider)-> AbstractService*{
       return new umsservice::upgrader::UpgradeCloudControllerWrapper(provider);
    });
-   //   provider.addServiceToPool("ServerStatus/Info", [](ServiceProvider& provider)-> AbstractService*{
-   //                            return new ummservice::serverstatus::Info(provider);
-   //                         });
    //   provider.addServiceToPool("Common/Uploader", [](ServiceProvider& provider)-> AbstractService*{
    //                            return new ummservice::common::Uploader(provider);
    //                         });

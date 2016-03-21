@@ -2,8 +2,8 @@ import qbs 1.0
 Product
 {
     files: [
-        "common/download_client.cpp",
         "common/download_client.h",
+        "common/download_client_wrapper.cpp",
         "global_defs.h",
         "macros.h",
         "service_repo.h",

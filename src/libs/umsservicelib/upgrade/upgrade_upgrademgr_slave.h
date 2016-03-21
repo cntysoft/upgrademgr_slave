@@ -17,7 +17,7 @@ namespace upgrader{
 
 UMS_USING_SERVICE_NAMESPACES
 
-using umsservice::common::DownloadClient;
+using umsservice::common::DownloadClientWrapper;
 
 class UMS_SERVICE_EXPORT UpgradeUpgradeMgrSlaveWrapper : public AbstractService
 {

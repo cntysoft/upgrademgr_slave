@@ -18,7 +18,7 @@ namespace upgrader{
 
 UMS_USING_SERVICE_NAMESPACES
 
-using umsservice::common::DownloadClient;
+using umsservice::common::DownloadClientWrapper;
 using UpgradeEnvEngine = sn::corelib::upgrade::UpgradeEnv;
 
 class UMS_SERVICE_EXPORT UpgradeCloudControllerWrapper : public AbstractService
@@ -71,7 +71,7 @@ protected:
    bool runUpgradeScript();
    void upgradeComplete();
    void checkVersion();
-   QSharedPointer<DownloadClient> getDownloadClient(const QString &host, quint16 port);
+   QSharedPointer<DownloadClientWrapper> getDownloadClient(const QString &host, quint16 port);
    void clearState();
    QString getBackupDir();
    QString getUpgradeTmpDir();
@@ -84,7 +84,7 @@ protected:
    QSharedPointer<UpgradeContext> m_context;
    int m_step = STEP_PREPARE;
    QString m_deployDir;
-   QSharedPointer<DownloadClient> m_downloadClient;
+   QSharedPointer<DownloadClientWrapper> m_downloadClient;
    QSharedPointer<UpgradeEnvEngine> m_upgradeScriptEngine;
    int m_userId;
    int m_groupId;
