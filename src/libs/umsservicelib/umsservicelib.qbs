@@ -1,19 +1,6 @@
 import qbs 1.0
 Product
 {
-    files: [
-        "common/download_client.h",
-        "common/download_client_wrapper.cpp",
-        "global_defs.h",
-        "macros.h",
-        "service_repo.h",
-        "upgrade/upgrade_cloudcontroller.h",
-        "upgrade/upgrade_cloudcontroller_wrapper.cpp",
-        "upgrade/upgrade_luoxi.h",
-        "upgrade/upgrade_luoxi_wrapper.cpp",
-        "upgrade/upgrade_upgrademgr_slave.h",
-        "upgrade/upgrade_upgrademgr_slave_wrapper.cpp",
-    ]
    type: "dynamiclibrary"
    name : "umsservicelib"
    targetName : "umsservice"
@@ -51,5 +38,41 @@ Product
       fileTagsFilter: product.type.concat("dynamiclibrary_symlink")
       qbs.install: true
       qbs.installDir: "lib"
+   }
+   files: [
+        "global_defs.h",
+        "macros.h",
+        "service_repo.h",
+    ]
+   
+   Group  {
+      name : "common"
+      prefix : name+"/"
+      files : [
+         "download_client.h",
+         "download_client_wrapper.cpp"
+      ]
+   }
+   
+   Group  {
+      name : "upgrade"
+      prefix : name+"/"
+      files : [
+         "upgrade_cloudcontroller.h",
+         "upgrade_cloudcontroller_wrapper.cpp",
+         "upgrade_luoxi.h",
+         "upgrade_luoxi_wrapper.cpp",
+         "upgrade_upgrademgr_slave.h",
+         "upgrade_upgrademgr_slave_wrapper.cpp"
+      ]
+   }
+   
+   Group  {
+      name : "serverstatus"
+      prefix : name+"/"
+      files : [
+           "deploy_system_runtime.h",
+           "deploy_system_runtime_wrapper.cpp",
+       ]
    }
 }

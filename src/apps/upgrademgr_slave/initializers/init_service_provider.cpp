@@ -12,12 +12,12 @@ using sn::corelib::network::AbstractService;
 void init_service_provider()
 {
    ServiceProvider& provider = ServiceProvider::instance();
+   provider.addServiceToPool("ServerStatus/DeploySystemLuoXiRuntime", [](ServiceProvider& provider)-> AbstractService*{
+                            return new umsservice::serverstatus::DeploySystemLuoXiServerRuntimeWrapper(provider);
+                         });
    provider.addServiceToPool("Upgrader/UpgradeCloudController", [](ServiceProvider& provider)-> AbstractService*{
       return new umsservice::upgrader::UpgradeCloudControllerWrapper(provider);
    });
-   //   provider.addServiceToPool("Common/Uploader", [](ServiceProvider& provider)-> AbstractService*{
-   //                            return new ummservice::common::Uploader(provider);
-   //                         });
    provider.addServiceToPool("Upgrader/UpgradeUpgradeMgrSlave", [](ServiceProvider& provider)-> AbstractService*{
       return new umsservice::upgrader::UpgradeUpgradeMgrSlaveWrapper(provider);
    });

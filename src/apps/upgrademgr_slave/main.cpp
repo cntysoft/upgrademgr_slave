@@ -7,7 +7,6 @@
 
 #include "application.h"
 #include "command_runner.h"
-#include <QDebug>
 
 using UpgrademgrSlaveApplication = upgrademgr::slave::Application;
 using CommandRunner = upgrademgr::slave::CommandRunner;
@@ -31,6 +30,8 @@ int main(int argc, char *argv[])
       qAddPostRoutine(upgrademgr::slave::global_cleanup);
       app.ensureImportantDir();
       app.watchUnixSignal(SIGINT, true);
+      app.watchUnixSignal(SIGABRT, true);
+      app.watchUnixSignal(SIGTERM, true);
       CommandRunner cmdrunner(app);
       QTimer::singleShot(0, Qt::PreciseTimer, [&cmdrunner]{
          cmdrunner.run();
