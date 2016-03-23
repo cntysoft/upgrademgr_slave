@@ -73,6 +73,8 @@ Product
       files : [
            "deploy_system_runtime.h",
            "deploy_system_runtime_wrapper.cpp",
+           "server_info.h",
+           "server_info_wrapper.cpp",
        ]
    }
 }
