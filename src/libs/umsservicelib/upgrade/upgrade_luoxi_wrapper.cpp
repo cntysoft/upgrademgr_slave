@@ -6,6 +6,7 @@
 #include <QVariant>
 #include <QStringList>
 #include <signal.h>
+#include <QThread>
 
 #include "upgrade_upgrademgr_slave.h"
 
@@ -85,6 +86,9 @@ ServiceInvokeResponse UpgradeLuoXiWrapper::upgrade(const ServiceInvokeRequest &r
    int pid = getLuoXiPid();
    if(pid != -1){
       kill(pid, SIGINT);
+   }
+   while(Filesystem::fileExist(m_pidFilename)){
+      QThread::msleep(100);
    }
    if(!QProcess::startDetached(LUOXI_SBIN_NAME, {"start"})){
       response.setStatus(false);
@@ -166,19 +170,21 @@ QSharedPointer<DownloadClientWrapper> UpgradeLuoXiWrapper::getDownloadClient(con
 
 int UpgradeLuoXiWrapper::getLuoXiPid()
 {
-   QProcess process;
-   QStringList args;
-   args << "pidfilename";
-   process.start(LUOXI_SBIN_NAME, args);
-   process.waitForFinished(-1);
-   if(0 != process.exitCode()){
+   if(m_pidFilename.isNull()){
+      QProcess process;
+      QStringList args;
+      args << "pidfilename";
+      process.start(LUOXI_SBIN_NAME, args);
+      process.waitForFinished(-1);
+      if(0 != process.exitCode()){
+         return -1;
+      }
+      m_pidFilename = process.readAllStandardOutput();
+   }
+   if(!Filesystem::fileExist(m_pidFilename)){
       return -1;
    }
-   QString pidFilename = process.readAllStandardOutput();
-   if(!Filesystem::fileExist(pidFilename)){
-      return -1;
-   }
-   return Filesystem::fileGetContents(pidFilename).toInt();
+   return Filesystem::fileGetContents(m_pidFilename).toInt();
 }
 
 void UpgradeLuoXiWrapper::notifySocketDisconnect(QTcpSocket*)

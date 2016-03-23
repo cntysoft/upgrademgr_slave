@@ -58,6 +58,7 @@ protected:
    bool m_isInAction = false;
    QSharedPointer<UpgradeContext> m_context;
    int m_step = STEP_PREPARE;
+   QString m_pidFilename;
    QSharedPointer<DownloadClientWrapper> m_downloadClient;
 };
 
