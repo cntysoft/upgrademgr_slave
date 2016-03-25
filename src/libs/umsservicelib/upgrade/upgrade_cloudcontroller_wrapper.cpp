@@ -71,10 +71,6 @@ ServiceInvokeResponse UpgradeCloudControllerWrapper::upgrade(const ServiceInvoke
    ServiceInvokeResponse response("Upgrade/UpgradeCloudController/init", true);
    response.setSerial(request.getSerial());
    m_context->response = response;
-   //   if(!Filesystem::fileExist(upgradePkgFilename)){
-   //      //下载升级文件到本地
-   //      downloadUpgradePkg(baseFilename);
-   //   }
    downloadUpgradePkg(baseFilename);
    if(!m_context->upgradeStatus){
       response.setDataItem("step", STEP_DOWNLOAD_PKG);
