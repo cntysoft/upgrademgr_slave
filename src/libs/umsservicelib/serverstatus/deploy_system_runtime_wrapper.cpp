@@ -59,8 +59,9 @@ ServiceInvokeResponse DeploySystemLuoXiServerRuntimeWrapper::restartServer(const
    if(-1 != pid){
       kill(pid, SIGINT);
    }
-   while(Filesystem::fileExist(m_pidFilename)){
-      QThread::msleep(100);
+   QThread::msleep(500);
+   if(Filesystem::fileExist(m_pidFilename)){
+      Filesystem::deleteFile(m_pidFilename);
    }
    if(!QProcess::startDetached(LUOXI_SBIN_NAME, {"start"})){
       response.setDataItem("msg", "启动服务器失败, 请重新尝试");
